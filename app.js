@@ -2,8 +2,10 @@ const mongoose= require ('mongoose');
 const  User  = require('./model/User');
 const express=require('express');
 const app= express();
+const jwt = require("jsonwebtoken");
 const bcrypt=require('bcrypt');
 const bodyParser=require('body-parser');
+require('dotenv').config()
 app.use(bodyParser.urlencoded({extended:true}));
 mongoose.Promise=global.Promise;
 
@@ -47,6 +49,8 @@ app.post('/login',(req,res)=>{
                 if(err) return err;
                 if(matched){
                     res.send('user can login');
+                    const accessToken=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET)
+                     res.json({accessToken:accessToken})
                 }else{
                     res.send('user not able to login');
                 }
@@ -55,10 +59,21 @@ app.post('/login',(req,res)=>{
     });
 });
 
+ // middleware
+function authenticateToken(req,res,next){
+    const authHeader=req.headers['authorization']
+    const token=authHeader&&authHeader.split(' ')[1]
+    if(token==null) return res.sendStatus(401)
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET,(err,user)=>{
+        if(err) return res.sendStatus(403)
+        req.user=user
+        next()
+    })
+}
 
 
 // fetching data
-    app.get('/users',(req,res)=>{
+    app.get('/users',authenticateToken,(req,res)=>{
         User.find({}).then(users=>{
             res.send(users);
         })
